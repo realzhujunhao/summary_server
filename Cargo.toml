@@ -1,0 +1,24 @@
+[package]
+name = "shen-server"
+version = "0.1.0"
+edition = "2021"
+description = "Backend restful API for summary service"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+uuid = { version = "1", features = ["v4", "macro-diagnostics"] }
+tokio = { version = "1", features = ["full", "macros"] }
+tokio-util = { version = "0", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+axum = { version = "0", features = ["macros"] }
+thiserror = "2"
+tracing = "0"
+tracing-subscriber = { version = "0", features = [
+    "time",
+    "env-filter",
+    "registry",
+] }
+tracing-appender = "0"
+time = { version = "0", features = ["local-offset", "macros"] }
+tower-http = { version = "0", features = ["fs", "cors"] }

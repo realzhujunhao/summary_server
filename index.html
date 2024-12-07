@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+
+        input[type="text"] {
+            width: 300px;
+        }
+
+        #downloadBtn {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <input id="urlInput" type="text" placeholder="Enter YouTube link">
+    <button id="initBtn">Submit</button>
+    <button id="downloadBtn" disabled>Download</button>
+    <button id="docBtn">API Documentation</button>
+    <div id="status"></div>
+    <script>
+        (function () {
+            let uuid = "";
+            let pollInterval = null;
+            let downloadInterval = null;
+            let domain = "http://shenjingjun.com";
+
+            const urlInput = document.getElementById('urlInput');
+            const initBtn = document.getElementById('initBtn');
+            const statusDiv = document.getElementById('status');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const docBtn = document.getElementById('docBtn');
+
+            initBtn.onclick = function () {
+                console.log("click submit");
+                fetch(domain + '/init', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: urlInput.value, uuid: uuid})
+                })
+                    .then(r => r.json())
+                    .then(resp => {
+                        console.log("recv /init resp")
+                        if (resp.success) {
+                            uuid = resp.data.uuid;
+                            console.log("/init success, uuid = " + uuid)
+                            startPoll();
+                        } else {
+                            console.log("/init failed, uuid = " + uuid)
+                            statusDiv.textContent = 'success=false, err=' + JSON.stringify(resp.err);
+                        }
+                    });
+            };
+
+            function startPoll() {
+                if (pollInterval != null) {
+                    clearInterval(pollInterval)
+                }
+                pollInterval = setInterval(() => {
+                    console.log("polling");
+                    fetch(domain + '/poll', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({uuid: uuid})
+                    })
+                        .then(r => r.json())
+                        .then(resp => {
+                            if (!resp.success) {
+                                console.log("recv /poll")
+                                statusDiv.textContent = 'success=false, err=' + JSON.stringify(resp.err);
+                                clearInterval(pollInterval);
+                            } else {
+                                if (resp.data.done) {
+                                    console.log("done!" + resp.data.result);
+                                    statusDiv.textContent = 'done=true, stage=' + resp.data.stage + ', result=' + resp.data.result;
+                                    clearInterval(pollInterval);
+                                    downloadBtn.disabled = false;
+                                } else {
+                                    statusDiv.textContent = 'done=' + resp.data.done + ', stage=' + resp.data.stage;
+                                }
+                            }
+                        });
+                }, 4000);
+            }
+
+            downloadBtn.onclick = function () {
+                downloadInterval = setInterval(() => {
+                    fetch(domain + '/download', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({uuid: uuid})
+                    })
+                        .then(r => {
+                            const ct = r.headers.get('Content-Type');
+                            if (ct && ct.includes('application/zip')) {
+                                return r.blob().then(blob => {
+                                    const a = document.createElement('a');
+                                    a.href = URL.createObjectURL(blob);
+                                    a.download = uuid + '.zip';
+                                    a.click();
+                                    clearInterval(downloadInterval);
+                                });
+                            } else {
+                                return r.json().then(resp => {
+                                    if (!resp.success) {
+                                        statusDiv.textContent = 'download failed, err=' + JSON.stringify(resp.err);
+                                        clearInterval(downloadInterval);
+                                    }
+                                }).catch(() => {
+                                    statusDiv.textContent = 'download response not JSON nor zip';
+                                    clearInterval(downloadInterval);
+                                });
+                            }
+                        });
+                }, 4000);
+            };
+
+            docBtn.onclick = function () {
+                window.location.href = domain + "/doc/shen_server/index.html";
+            };
+        })();
+    </script>
+</body>
+
+</html>
